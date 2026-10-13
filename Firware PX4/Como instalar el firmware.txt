@@ -1,0 +1,9 @@
+Enlace explicativo:https://docs.px4.io/main/en/config_rover/#flashing-the-rover-build
+Enlace de firmware: https://github.com/PX4/PX4-Autopilot/releases/tag/v1.16.1
+
+El QgroundControl NO te instala el firmware PX4 compatible para botes por defecto.
+
+Para el usar el PX4 en un bote, debes descargar el firmware 'px4_fmu-v5_rover' a traves del enlace explicativo.
+
+Luego, en QgroundControl, eliges el frame 'Generic Rover Differential'. En escencia, un rover diferencial es lo mismo que el bote de dos motores
+diferenciales. 
