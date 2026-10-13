@@ -1,7 +1,5 @@
 # Guia de Configuracion y Uso de ASV (Autonomous Surface Vehicles)
 
-Este documento contiene las instrucciones y la guia explicativa para los diferentes archivos, parametros y scripts presentes en este repositorio de GitHub. Fue creado mediante la conversion desde el .docx utilizando Gemini Notebook.
-
 ---
 
 ## 📋 Estructura del Repositorio y Archivos Relevantes
