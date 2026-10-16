@@ -1,0 +1,92 @@
+import serial
+import time
+import math
+
+# Configuración de los puertos serial de los módulos inalámbricos
+DRONE1_PORT = 'COM7'   # Ajusta al puerto del primer módulo
+DRONE2_PORT = 'COM11'  # Ajusta al puerto del segundo módulo
+BAUDRATE = 57600
+
+# Lista de waypoints en NED (ejemplo)
+waypoints = [
+    (0.0, 0.0),
+    (5.0, 0.0),
+    (5.0, 5.0),
+    (0.0, 5.0),
+    (0.0, 0.0)
+]
+
+DIST_THRESHOLD = 0.5   # 50 cm
+SEND_INTERVAL = 0.5    # 2 Hz mínimo
+
+# Conexión a los puertos serial
+ser1 = serial.Serial(DRONE1_PORT, BAUDRATE, timeout=1)
+ser2 = serial.Serial(DRONE2_PORT, BAUDRATE, timeout=1)
+
+print(f"Conectado a {DRONE1_PORT} y {DRONE2_PORT}")
+
+# Índices de waypoint para cada dron
+wp_index1 = 0
+wp_index2 = 0
+
+last_send_time = 0
+
+def distance(x1, y1, x2, y2):
+    return math.sqrt((x1-x2)**2 + (y1-y2)**2)
+
+while True:
+    try:
+        # Leer posición actual del dron1
+        if ser1.in_waiting > 0:
+            msg = ser1.readline().decode('utf-8').strip()
+            if msg.startswith("ACTUAL_NED:"):
+                try:
+                    coords = msg.replace("ACTUAL_NED:", "").split(',')
+                    x1, y1 = float(coords[0]), float(coords[1])
+                    print(f"Dron1 actual: X={x1:.2f}, Y={y1:.2f}")
+                    if wp_index1 < len(waypoints):
+                        x_sp, y_sp = waypoints[wp_index1]
+                        if distance(x1, y1, x_sp, y_sp) < DIST_THRESHOLD:
+                            wp_index1 += 1
+                            print(f"Dron1 alcanzó waypoint, siguiente índice {wp_index1}")
+                except:
+                    pass
+
+        # Leer posición actual del dron2
+        if ser2.in_waiting > 0:
+            msg = ser2.readline().decode('utf-8').strip()
+            if msg.startswith("ACTUAL_NED:"):
+                try:
+                    coords = msg.replace("ACTUAL_NED:", "").split(',')
+                    x2, y2 = float(coords[0]), float(coords[1])
+                    print(f"Dron2 actual: X={x2:.2f}, Y={y2:.2f}")
+                    if wp_index2 < len(waypoints):
+                        x_sp, y_sp = waypoints[wp_index2]
+                        if distance(x2, y2, x_sp, y_sp) < DIST_THRESHOLD:
+                            wp_index2 += 1
+                            print(f"Dron2 alcanzó waypoint, siguiente índice {wp_index2}")
+                except:
+                    pass
+
+        # Enviar setpoints a 2 Hz
+        if (time.time() - last_send_time) >= SEND_INTERVAL:
+            if wp_index1 < len(waypoints):
+                x_sp, y_sp = waypoints[wp_index1]
+                ser1.write(f"{x_sp},{y_sp}\n".encode('utf-8'))
+                print(f"Enviado a dron1: Xsp={x_sp}, Ysp={y_sp}")
+
+            if wp_index2 < len(waypoints):
+                x_sp, y_sp = waypoints[wp_index2]
+                ser2.write(f"{x_sp},{y_sp}\n".encode('utf-8'))
+                print(f"Enviado a dron2: Xsp={x_sp}, Ysp={y_sp}")
+
+            last_send_time = time.time()
+
+        time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        print("Programa interrumpido por el usuario.")
+        break
+    except Exception as e:
+        print(f"Error general: {e}")
+        time.sleep(1)

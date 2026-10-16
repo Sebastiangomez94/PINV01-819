@@ -1,0 +1,78 @@
+import serial
+import time
+from pymavlink import mavutil
+
+# Puerto serial del módulo conectado a la Raspberry Pi
+SERIAL_PORT = '/dev/ttyUSB0'   # Ajusta según tu hardware
+BAUD_RATE = 57600
+
+# Puerto MAVLink: Serial0 de la Raspberry Pi
+UAV_PORT = '/dev/serial0'
+UAV_BAUDRATE = 115200
+
+COORD_TIMEOUT = 2.0     # Tiempo máximo sin recibir coordenadas deseadas
+SEND_INTERVAL = 0.5     # Frecuencia mínima de envío (2 Hz)
+
+# Conexión al puerto serial
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+print(f"Conectado al puerto serial {SERIAL_PORT} a {BAUD_RATE} baud.")
+
+# Conexión MAVLink
+master = mavutil.mavlink_connection(UAV_PORT, baud=UAV_BAUDRATE)
+master.wait_heartbeat()
+print("Conectado al dron vía MAVLink.")
+
+last_coord_time = 0
+x_ned_sp, y_ned_sp = None, None
+last_send_time = 0
+
+while True:
+    try:
+        # Lectura de coordenadas deseadas desde el puerto serial
+        if ser.in_waiting > 0:
+            raw_data = ser.readline().decode('utf-8').strip()
+            try:
+                # Se espera formato "X,Y" en NED
+                x_str, y_str = raw_data.split(',')
+                x_ned_sp, y_ned_sp = float(x_str), float(y_str)
+                last_coord_time = time.time()
+                print(f"Coordenada NED deseada recibida: X={x_ned_sp}, Y={y_ned_sp}")
+            except Exception as e:
+                print(f"Error procesando datos: {raw_data} ({e})")
+
+        # Leer posición actual del bote desde MAVLink
+        localpos = master.recv_match(type='LOCAL_POSITION_NED', blocking=False, timeout=0.1)
+        if localpos:
+            x_actual = localpos.x
+            y_actual = localpos.y
+            # Enviar posición actual al puerto serial
+            actual_message = f"ACTUAL_NED: {x_actual:.2f},{y_actual:.2f}\n"
+            ser.write(actual_message.encode("utf-8"))
+            print(f"Posición actual enviada al puerto serial: {actual_message.strip()}")
+
+        # Verificar si aún se deben enviar coordenadas deseadas al dron
+        if x_ned_sp is not None and y_ned_sp is not None:
+            if (time.time() - last_coord_time) <= COORD_TIMEOUT:
+                if (time.time() - last_send_time) >= SEND_INTERVAL:
+                    master.mav.set_position_target_local_ned_send(
+                        0,                      # time_boot_ms
+                        master.target_system,   # target_system
+                        master.target_component,# target_component
+                        mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
+                        0b0000111111000111,     # type_mask (solo posición X,Y)
+                        x_ned_sp, y_ned_sp, 0,  # posiciones NED deseadas
+                        0, 0, 0,                # velocidades (ignoradas)
+                        0, 0, 0,                # aceleraciones (ignoradas)
+                        0, 0                    # yaw, yaw_rate (ignorados)
+                    )
+                    print(f"Enviado al dron: Xned={x_ned_sp}, Yned={y_ned_sp}")
+                    last_send_time = time.time()
+            else:
+                print("No se reciben coordenadas deseadas, se detiene el envío al dron.")
+
+    except KeyboardInterrupt:
+        print("Programa interrumpido por el usuario.")
+        break
+    except Exception as e:
+        print(f"Error general: {e}")
+        time.sleep(1)
