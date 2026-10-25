@@ -10,18 +10,20 @@ BAUD_RATE = 57600
 
 # Puerto MAVLink: Conexión con Pixhawk/ArduPilot
 UAV_PORT = '/dev/serial0'
-UAV_BAUDRATE = 115200
+UAV_BAUDRATE = 921600
 
-COORD_TIMEOUT = 10.0   # Tiempo máximo sin recibir coordenadas deseadas
-SEND_INTERVAL = 2      # Frecuencia mínima de envío a la Pixhawk (1/2 Hz)
+COORD_TIMEOUT = 5.0              # Tiempo máximo sin recibir coordenadas deseadas
+SEND_INTERVAL = 0.25             # Frecuencia mínima de envío a la Pixhawk (1/2 Hz)
+UAV_RECVMATCH_TIMEOUT = 2        #TIME TO WAIT TO ASSUME A RECVMATCH CALL HAS FAILED
+UAV_HEARTBEAT_TIMEOUT = 5        #TIME TO WAIT TO ASSUME A HEARTBEAT CALL HAS FAILED
 
 # Conexión al puerto serial de radio
-ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=UAV_RECVMATCH_TIMEOUT)
 print(f"Conectado al puerto serial {SERIAL_PORT} a {BAUD_RATE} baud.")
 
 # Conexión MAVLink a la controladora de vuelo (Pixhawk)
-master = mavutil.mavlink_connection(UAV_PORT, baud=UAV_BAUDRATE)
-master.wait_heartbeat()
+asv = mavutil.mavlink_connection(UAV_PORT, baud=UAV_BAUDRATE)
+asv.wait_heartbeat(timeout=UAV_HEARTBEAT_TIMEOUT)
 print("Conectado al dron vía MAVLink. Corazón detectado.")
 
 last_coord_time = 0
@@ -41,34 +43,29 @@ new_telemetry_available = False
 
 def read_mavlink_telemetry():
     """Hilo secundario para procesar de forma continua los mensajes MAVLink de la Pixhawk."""
-    global x_actual, y_actual, yaw_deg, x0, y0, new_telemetry_available
+    global x_actual, y_actual, yaw_deg, x0, y0, new_telemetry_available,asv
     while True:
         try:
             # 1. Leer origen de coordenadas (HOME_POSITION)
-            att      = master.recv_match(type='ATTITUDE', blocking=False)
-            localpos = master.recv_match(type='LOCAL_POSITION_NED', blocking=False)
-            homepos  = master.recv_match(type='HOME_POSITION', blocking=False)            
+            att      = asv.recv_match(type='ATTITUDE', blocking=False)
+            localpos = asv.recv_match(type='LOCAL_POSITION_NED', blocking=False)
+            homepos  = asv.recv_match(type='HOME_POSITION', blocking=False)            
             if homepos:
                 x0 = homepos.x
                 y0 = homepos.y
-                print("Homepos actualizado")
-
+                print(f"Homepos actualizado. X0={x0:.2f},Y0={y0:.2f}")
             # 2. Leer posición local (LOCAL_POSITION_NED)
-            
             if localpos:
                 x_actual = localpos.x
                 y_actual = localpos.y
-                print("Localpos actualizado")
+                print(f"Localpos actualizado. X={x_actual:.2f},Y={y_actual:.2f}")
                 new_telemetry_available = True
-
             # 3. Leer orientación/actitud (ATTITUDE) para extraer el Yaw
-            
             if att:
                 yaw_deg = att.yaw * (180.0 / math.pi)
                 new_telemetry_available = True
-                print("Att actualizado")
-
-            time.sleep(0.01)  # Pequeño descanso para el hilo secundario
+                print(f"Att actualizado. Yaw_rel={yaw_deg:.2f}")
+             #time.sleep(0.01)  # Por Dios, esta linea generaba todo un problema de lecturas de los paquetes
         except Exception as e:
             print(f"Error en hilo MAVLink: {e}")
 
@@ -95,7 +92,7 @@ try:
         if new_telemetry_available:
             x_rel = x_actual - x0
             y_rel = y_actual - y0
-            actual_message = f"ACTUAL_NED:{x_rel:.2f},{y_rel:.2f},{yaw_deg:.2f}\n"
+            actual_message = f"ACTUAL_POS:{x_rel:.2f},{y_rel:.2f},{yaw_deg:.2f}\n"
             ser.write(actual_message.encode("utf-8"))
             new_telemetry_available = False
 
@@ -108,12 +105,12 @@ try:
                     y_target = y_ned_sp + y0
 
                     # Máscara para posición X,Y (0x0DFB = ignora Z, VX, VY, VZ, AX, AY, AZ, YAW, YAW_RATE)
-                    type_mask = 0b110111111011
+                    type_mask = 0b110111111100  # Hex: Ignore EVERYTHING but the Force Set, X and Y control
 
-                    master.mav.set_position_target_local_ned_send(
+                    asv.mav.set_position_target_local_ned_send(
                         0,                                    # time_boot_ms
-                        master.target_system,                 # target_system
-                        master.target_component,              # target_component
+                        asv.target_system,                    # target_system
+                        asv.target_component,                 # target_component
                         mavutil.mavlink.MAV_FRAME_LOCAL_NED,  # frame
                         type_mask,                            # type_mask
                         x_target, y_target, 0.0,              # X_target, Y_target corregidos
@@ -121,7 +118,7 @@ try:
                         0, 0, 0,                              # AX, AY, AZ
                         0, 0                                  # YAW, YAW_RATE
                     )
-                    print(f"Enviado a Pixhawk (Relativo + Origen): X={x_target:.2f} (X0={x0:.2f}), Y={y_target:.2f} (Y0={y0:.2f})")
+                    print(f"Posicion consigna enviada al Pixhawk: X_target={x_target:.2f}, Y_target={y_target:.2f}")
                     last_send_time = time.time()
             else:
                 if not timeout_printed:

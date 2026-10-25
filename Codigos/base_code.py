@@ -27,8 +27,7 @@ waypoints_drone2 = [
 ]
 
 DIST_THRESHOLD = 0.5   # 50 cm
-SEND_INTERVAL = 0.5    # 2 Hz (cada 500 ms)
-
+SEND_INTERVAL  = 0.5     # Cada 1 segundos
 # Conexión a los puertos serial
 ser1 = serial.Serial(DRONE1_PORT, BAUDRATE, timeout=1)
 ser2 = serial.Serial(DRONE2_PORT, BAUDRATE, timeout=1) if two_asv_mode else None
@@ -53,21 +52,24 @@ def process_serial_data(ser, drone_name, current_wp_index, waypoints_list):
     while ser.in_waiting > 0:
         try:
             line = ser.readline().decode('utf-8', errors='ignore').strip()
-            if line.startswith("ACTUAL_NED:"):
-                coords = line.replace("ACTUAL_NED:", "").split(',')
+            if line.startswith("ACTUAL_POS:"):
+                coords = line.replace("ACTUAL_POS:", "").split(',')
                 
                 # Extrae X, Y y Yaw (grados)
                 x = float(coords[0])
                 y = float(coords[1])
                 yaw = float(coords[2]) if len(coords) > 2 else 0.0
                 
-                print(f"{drone_name} actual: X={x:.2f}, Y={y:.2f}, Yaw={yaw:.1f}°")
+                print(f"{drone_name} actual: X={x:.2f}, Y={y:.2f}, Yaw={yaw:.1f}")
                 
                 if updated_index < len(waypoints_list):
                     x_sp, y_sp = waypoints_list[updated_index]
-                    if distance(x, y, x_sp, y_sp) < DIST_THRESHOLD:
+                    distance_asv=distance(x, y, x_sp, y_sp)
+                    if  distance_asv < DIST_THRESHOLD:
                         updated_index += 1
                         print(f"{drone_name} alcanzó waypoint. Siguiente índice: {updated_index}")
+                    else:
+                        print(f"{drone_name} a {distance_asv:.2f} del waypoint")
         except (ValueError, IndexError):
             pass  # Descarta paquetes mal formados o incompletos
     return updated_index
