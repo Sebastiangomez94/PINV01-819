@@ -1,6 +1,0 @@
-mavlink stream -d /dev/ttyS1 -s ATTITUDE -r 5
-mavlink stream -d /dev/ttyS2 -s ATTITUDE -r 5
-mavlink stream -d /dev/ttyS1 -s LOCAL_POSITION_NED -r 5
-mavlink stream -d /dev/ttyS2 -s LOCAL_POSITION_NED -r 5
-mavlink stream -d /dev/ttyS1 -s BATTERY_STATUS -r 5
-mavlink stream -d /dev/ttyS2 -s BATTERY_STATUS -r 5
