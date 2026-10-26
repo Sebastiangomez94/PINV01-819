@@ -1,0 +1,38 @@
+PYTHON LIBRARY TO MANIPULATE MAVLINK MESSAGES: pymavlink
+
+HOW TO INSTALL:
+
+Install Python. I am using Python 3.10.10.
+
+Then, open the command window and type "pip install pymavlink"
+
+
+MAVLINK TUTORIAL:
+
+https://mavlink.io/en/mavgen_python/
+
+Pixhawk Cube dev/tty ports:
+
+https://docs.px4.io/main/en/flight_controller/cubepilot_cube_orange.html
+
+
+
+MAVLINK RC OVERRIDE:
+
+https://github.com/ArduPilot/pymavlink/issues/641
+
+Note: This creates another uORB logging topic called "input_rc_1".
+By using this, you can only send data "for logging", and that is the thing it is expected to do. The AIA will only notify the Pixhawk it kicked on, but it will make no change on the Pixhawk behavior.
+
+
+
+MAVLINK UAV PARAM READ:
+
+https://gist.github.com/donghee/07ca13d9064a5c19863f275f42d8edc3
+
+CHECK FOR TTY PORT ON RPIR4B:
+
+https://www.jarutex.com/index.php/2022/01/06/9253/
+
+
+PYMAVLINK works on RPI4B. But the FTDI2USB fails. You may have to connect both UART devices directly.
