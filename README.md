@@ -14,7 +14,7 @@ Este documento contiene las instrucciones y la guia explicativa para los diferen
 - **`Firmware PX4.rar`**: Incluye el archivo `px4_fmu-v5_rover.px4`, que corresponde al firmware compilado listo para cargar.
 - **`backup_parametros.params`**: Archivo de respaldo para la carga automatica de la configuracion de parametros.
 - **`px4_custom_logging_routine`**: Carpeta que debe copiarse a la raiz de la memoria SD del autopiloto para garantizar la correcta transmision de datos en el modo *Offboard*.
-- **`rutas/`**: Carpeta que almacena las trayectorias realizadas por los botes en archivos `.kml`, visualizables en Google Earth.
+- **`Logs 10_11_26/`**: Carpeta que almacena las trayectorias realizadas por los botes en archivos `.kml`, visualizables en Google Earth.
 - **`asv_code.py`**: Codigo principal que se debe copiar y ejecutar en cada ASV.
 - **`base_code.py`**: Codigo principal de control para ejecutar en la computadora de la base.
 
@@ -173,7 +173,7 @@ Muestra en tiempo real el angulo de *yaw*, la posicion relativa ($X$, $Y$) y el 
   ```python
   UAV_PORT = 'COMX'  # Reemplazar 'X' por el numero de puerto COM asignado
   ```
-- **Raspberry Pi** (conexion del puerto TELEM2 de Pixhawk al puerto Serial0):
+- **Raspberry Pi** (conexion del puerto TELEM2 de Pvvvixhawk al puerto Serial0):
   ```python
   UAV_PORT = '/dev/serial0'
   ```
